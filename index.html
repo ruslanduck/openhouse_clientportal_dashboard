@@ -85,7 +85,11 @@ a{color:inherit}
   border-bottom:1.5px solid var(--ink);
 }
 .topbar__in{display:flex;align-items:center;justify-content:space-between;gap:16px;height:58px}
-.topbar__mark{font-family:var(--display);font-weight:400;font-size:20px;letter-spacing:-.04em;line-height:1}
+/* The wordmark is the real logo now, inlined as SVG so it inherits --ink via
+   currentColor and stays crisp at any zoom. Height drives the size; width
+   follows the 8.64:1 viewBox on its own. The source <style>/.st0 block was
+   stripped — inside HTML it would have leaked a global CSS rule. */
+.topbar__logo{height:15px;width:auto;display:block;color:var(--ink)}
 .topbar__label{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3)}
 
 /* ── Hero ───────────────────────────────────────────────────── */
@@ -351,7 +355,7 @@ a:hover .ext{opacity:1}
 @media (max-width:760px){
   .wrap{padding:0 16px}
   .topbar__in{height:50px}
-  .topbar__mark{font-size:17px}
+  .topbar__logo{height:13px}
   .hero{padding:24px 0 2px}
   .hero__sub{font-size:15px;line-height:1.3;max-width:24em}
   .order__head{grid-template-columns:1fr auto;gap:14px 12px;padding:16px}
@@ -372,7 +376,7 @@ a:hover .ext{opacity:1}
 
 <header class="topbar">
   <div class="wrap topbar__in">
-    <div class="topbar__mark">OPENHOUSE</div>
+    <svg class="topbar__logo" viewBox="20.51 85.71 352.05 40.76" fill="currentColor" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="OPENHOUSE"><path d="M20.51,106.09c0-11.79,8.22-20.38,19.59-20.38s19.59,8.59,19.59,20.38-8.22,20.37-19.59,20.37-19.59-8.59-19.59-20.37ZM40.1,117.76c5.87,0,10.16-5.02,10.16-11.79s-4.29-11.79-10.16-11.79-10.16,4.9-10.16,11.79,4.29,11.79,10.16,11.79Z"/><path d="M65.58,86.44h18.62c7.44,0,12.82,5.32,12.82,12.7s-5.68,12.58-13.54,12.58h-8.95v14.03h-8.95v-39.3h0ZM82.63,105.18c2.9,0,4.96-2.24,4.96-5.32s-2.06-5.32-4.96-5.32h-8.1v10.64h8.1Z"/><path d="M102.94,86.44h28.05v8.1h-19.1v7.98h15.72v6.29h-15.72v8.71h19.83v8.22h-28.78v-39.3Z"/><path d="M139.67,86.44h10.16l14.03,26.12v-26.12h8.95v39.3h-9.67l-14.51-26.6v26.6h-8.95v-39.3h-.01Z"/><path d="M190.71,86.44v15.6h15.48v-15.6h8.95v39.3h-8.95v-16.45h-15.48v16.45h-8.95v-39.3h8.95Z"/><path d="M221.08,106.09c0-11.79,8.22-20.38,19.59-20.38s19.59,8.59,19.59,20.38-8.22,20.37-19.59,20.37-19.59-8.59-19.59-20.37h0ZM240.67,117.76c5.87,0,10.16-5.02,10.16-11.79s-4.29-11.79-10.16-11.79-10.16,4.9-10.16,11.79,4.29,11.79,10.16,11.79Z"/><path d="M266.21,86.44h8.95v22.85c0,4.9,3.08,8.47,7.38,8.47s7.38-3.57,7.38-8.47v-22.85h8.95v23.1c0,9.79-6.83,16.93-16.32,16.93s-16.32-7.13-16.32-16.93v-23.1h-.02Z"/><path d="M322.72,118.48c2.96,0,5.8-1.21,5.8-3.87,0-7.5-22.25-5.32-22.25-17.9,0-6.41,5.68-11,14.51-11s16.2,4.54,16.69,10.76l-10.16,2.42c-.24-3.14-2.78-5.44-6.29-5.44-2.96,0-5.32,1.63-5.32,3.87,0,7.13,22.49,4.96,22.49,17.53,0,6.83-6.59,11.61-15.96,11.61s-17.17-5.26-17.41-12.39l10.4-2.18c.24,3.81,2.96,6.59,7.5,6.59h0Z"/><path d="M343.78,86.44h28.05v8.1h-19.1v7.98h15.72v6.29h-15.72v8.71h19.83v8.22h-28.78v-39.3h0Z"/></svg>
     <div class="topbar__label">Client Portal</div>
   </div>
 </header>
@@ -430,7 +434,7 @@ a:hover .ext{opacity:1}
 const CONFIG = {
   /* Bump this on every deploy. Shown in the ?debug panel so you can tell
      at a glance whether the live domain is serving the newest file. */
-  VERSION: 'p51-report-esc',
+  VERSION: 'p52-logo',
   // Make webhook that returns this client's orders.
   // Called as: WEBHOOK_URL + '?record_id=' + <id from the page URL>
   WEBHOOK_URL: 'https://hook.us2.make.com/abrea6i91eeauu8xzxhb6vmy2tpb9fl2',
