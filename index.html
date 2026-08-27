@@ -430,7 +430,7 @@ a:hover .ext{opacity:1}
 const CONFIG = {
   /* Bump this on every deploy. Shown in the ?debug panel so you can tell
      at a glance whether the live domain is serving the newest file. */
-  VERSION: 'p49-release',
+  VERSION: 'p51-report-esc',
   // Make webhook that returns this client's orders.
   // Called as: WEBHOOK_URL + '?record_id=' + <id from the page URL>
   WEBHOOK_URL: 'https://hook.us2.make.com/abrea6i91eeauu8xzxhb6vmy2tpb9fl2',
@@ -466,6 +466,13 @@ const CONFIG = {
 const $  = (s, r=document) => r.querySelector(s);
 const $$ = (s, r=document) => [...r.querySelectorAll(s)];
 const EXT = '<svg class="ext" width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.2 6.8 6.9 3.1M6.9 3.1H3.9M6.9 3.1v3"/></svg>';
+/* Every url on this page originates in Airtable, so it is data, not code.
+   A "javascript:" value in a proof or tracking field would execute on click,
+   so only http(s) is ever allowed through to an href, src or iframe. */
+function safeUrl(u){
+  const v = String(u ?? '').trim();
+  return /^https?:\/\//i.test(v) ? v : '';
+}
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 /* Airtable sends lookups as arrays (["Acme"]), attachments as [{url}],
@@ -1081,7 +1088,7 @@ let STATE = {orders: [], filter: 'all', query: ''};
 
 function proofChip(p, title, tag, showLink, skipDate){
   const st = proofState(p);
-  if(!st && !(p.url && showLink !== false)) return '';
+  if(!st && !(safeUrl(p.url) && showLink !== false)) return '';
   const label = st ? st.label : 'Proof available';
   const cls   = st ? st.cls : '';
   /* Version and date are dropped: the approval date already appears in the
@@ -1095,8 +1102,9 @@ function proofChip(p, title, tag, showLink, skipDate){
   const note = (p.rejected && text)
     ? `<div class="proof__note"><em>Your note</em>${esc(text)}</div>` : '';
 
-  const actions = (p.url && showLink !== false) ? `<div class="proof__actions">
-    <button class="btn" data-proof="${esc(p.url)}" data-proof-title="${esc(title || p.name || 'Proof')}">
+  const purl = safeUrl(p.url);
+  const actions = (purl && showLink !== false) ? `<div class="proof__actions">
+    <button class="btn" data-proof="${esc(purl)}" data-proof-title="${esc(title || p.name || 'Proof')}">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M2 12s3.8-7 10-7 10 7 10 7-3.8 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
       ${st && st.cls === 'pill--warn' ? 'Review proof' : 'View proof'}
     </button>
@@ -1155,8 +1163,8 @@ function orderProofsView(o){
       <span class="pill ${st ? st.cls : ''}">${esc(st ? st.label : 'Proof available')}</span>
       <b>${esc(p.name || 'Proof')}</b>
       ${p.version ? `<i>V${esc(p.version)}</i>` : ''}
-      ${(p.url && (!CONFIG.PROOF_LINK_REQUIRES_FLAG || p.sentAsLink))
-          ? `<button class="btn btn--ghost" data-proof="${esc(p.url)}" data-proof-title="${esc(p.name || 'Proof')}">Open</button>` : ''}
+      ${(safeUrl(p.url) && (!CONFIG.PROOF_LINK_REQUIRES_FLAG || p.sentAsLink))
+          ? `<button class="btn btn--ghost" data-proof="${esc(safeUrl(p.url))}" data-proof-title="${esc(p.name || 'Proof')}">Open</button>` : ''}
     </li>`;
   }).filter(Boolean).join('');
   if(!rows) return '';
@@ -1202,7 +1210,9 @@ function documentOf(g){
 function documentRow(g){
   const d = documentOf(g);
   if(!d) return '';
-  return `<div class="row"><span>Document</span><a href="${esc(d.url)}" target="_blank" rel="noopener">${d.label} ${EXT}</a></div>`;
+  const href = safeUrl(d.url);
+  if(!href) return '';
+  return `<div class="row"><span>Document</span><a href="${esc(href)}" target="_blank" rel="noopener">${d.label} ${EXT}</a></div>`;
 }
 
 /* A product can sit at a different stage than its order — e.g. one item
@@ -1242,12 +1252,12 @@ function cardView(g, orderStatus){
     : '';
 
   const track = g.tracking
-    ? `<div class="row"><span>Tracking</span><a class="mono" href="${esc(trackUrl(g.carrier, g.tracking, g.trackingUrl))}" target="_blank" rel="noopener">${esc(g.tracking)} ${EXT}</a></div>` : '';
+    ? `<div class="row"><span>Tracking</span><a class="mono" href="${esc(safeUrl(trackUrl(g.carrier, g.tracking, g.trackingUrl)))}" target="_blank" rel="noopener">${esc(g.tracking)} ${EXT}</a></div>` : '';
 
   return `<article class="card">
     <div class="card__top">
       <div class="card__media">${g.image
-        ? `<img src="${esc(g.image)}" alt="${esc(g.product + ' ' + g.color)}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'ph',textContent:'NO IMAGE'}))">`
+        ? `<img src="${esc(safeUrl(g.image))}" alt="${esc(g.product + ' ' + g.color)}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'ph',textContent:'NO IMAGE'}))">`
         : `<div class="ph">NO IMAGE</div>`}</div>
       <div class="card__id">
         <h4 class="card__name">${esc(g.product)}</h4>
@@ -1421,8 +1431,10 @@ $('#q').addEventListener('input', e => { STATE.query = e.target.value.trim().toL
 document.addEventListener('keydown', e => { if(e.key === 'Escape') closeProof(); });
 
 function openProof(url, title){
-  $('#modalFrame').src = url;
-  $('#modalOpen').href = url;
+  const safe = safeUrl(url);
+  if(!safe) return;
+  $('#modalFrame').src = safe;
+  $('#modalOpen').href = safe;
   $('#modalTitle').textContent = title || 'Proof';
   $('#modal').classList.add('is-open');
   document.body.style.overflow = 'hidden';
@@ -1512,21 +1524,22 @@ async function boot(){
 function buildReport(d, parsed){
   const j = (() => { try { return JSON.parse(d.raw); } catch { return {}; } })();
   const items = [].concat(j.items || []);
-  const cov = (label, fn) => `${label} ${items.filter(fn).length}/${items.length}`;
+  const cov = (label, fn) => `${esc(label)} ${items.filter(fn).length}/${items.length}`;
   const has = k => r => { const v = r[k]; return !(v === null || v === undefined || v === '' || (Array.isArray(v) && !v.filter(x => x !== null && x !== '').length)); };
 
   const L = [];
   L.push('PORTAL REPORT · build ' + CONFIG.VERSION);
-  L.push('record_id: ' + (d.recordId || '(none)'));
-  L.push('http: ' + (d.http || '—') + ' · source: ' + d.source);
+  L.push('record_id: ' + esc(d.recordId || '(none)'));
+  L.push('webhook: ' + (d.url ? d.url.replace(/\/\/[^/]+\/[^?]*/, '//<hidden>') : '(not called)'));
+  L.push('http: ' + esc(d.http || '—') + ' · source: ' + esc(d.source));
   L.push('payload: orders ' + [].concat(j.orders || []).length +
          ' · items ' + items.length + ' · proofs ' + [].concat(j.proofs || []).length);
   L.push('unmatched: items ' + (window.__portalOrphans || 0) + ' · proofs ' + (window.__portalProofOrphans || 0) +
          ' · placeholder orders hidden ' + (window.__portalEmptyOrders || 0));
   if((window.__portalDropped || []).length)
-    L.push('hidden as placeholders: ' + window.__portalDropped.join(', '));
+    L.push('hidden as placeholders: ' + esc(window.__portalDropped.join(', ')));
   if((window.__portalEmptyKept || []).length)
-    L.push('<span class="bad">no line items but shown anyway: ' + window.__portalEmptyKept.join(', ') + '</span>');
+    L.push('<span class="bad">no line items but shown anyway: ' + esc(window.__portalEmptyKept.join(', ')) + '</span>');
   /* A count sitting exactly on a round limit almost always means Airtable
      stopped early rather than that the data ends there. */
   for(const [k, n] of [['items', items.length],
@@ -1535,7 +1548,7 @@ function buildReport(d, parsed){
     if([100, 500, 1000].includes(n))
       L.push('<span class="bad">' + k + ' count is exactly ' + n +
              ' — almost certainly truncated, raise maxRecords on that Airtable module</span>');
-  if(d.err) L.push('PROBLEM: ' + d.err);
+  if(d.err) L.push('PROBLEM: ' + esc(d.err));
 
   if(items.length) L.push('coverage: ' + [
     cov('variantColor', has('Variant Color')), cov('variantSize', has('Variant Size')),
@@ -1549,10 +1562,10 @@ function buildReport(d, parsed){
   ].join(' · '));
 
   if(parsed){
-    L.push('client: ' + parsed.clientName + ' · orders rendered: ' + parsed.orders.length);
+    L.push('client: ' + esc(parsed.clientName) + ' · orders rendered: ' + parsed.orders.length);
     for(const o of parsed.orders){
       const units = o.groups.reduce((n, g) => n + g.total, 0);
-      L.push(`  ${o.no} | ${o.status} | ${o.groups.length}cw ${units}u | ${String(o.created).slice(0,10)} | addr ${o.shipLines.length}L`);
+      L.push(`  ${esc(o.no)} | ${esc(o.status)} | ${o.groups.length}cw ${units}u | ${esc(String(o.created).slice(0,10))} | addr ${o.shipLines.length}L`);
       for(const g of o.groups){
         const tg = (g.proofs || []).length > 1 ? proofTags(g.proofs) : (g.proofs || []).map(proofTag);
         const ps = (g.proofs || []).map((x, i) => {
@@ -1568,17 +1581,17 @@ function buildReport(d, parsed){
         });
         const sized = g.sizes.reduce((n, z) => n + z.qty, 0);
         const gapNote = g.sizes.length && sized !== g.total ? ` (Σ${sized} of ${g.total})` : '';
-        L.push(`    ${g.product} / ${g.color || '—'} | ${g.total} | sz ${g.sizes.map(z => z.label + ':' + z.qty).join(' ') || '—'}${gapNote}` +
-          ` | car ${g.carrier || '-'} | trk ${g.tracking ? 'Y' : '-'} | eta ${g.eta ? 'Y' : '-'}` +
+        L.push(`    ${esc(g.product)} / ${esc(g.color || '—')} | ${g.total} | sz ${esc(g.sizes.map(z => z.label + ':' + z.qty).join(' ') || '—')}${gapNote}` +
+          ` | car ${esc(g.carrier || '-')} | trk ${g.tracking ? 'Y' : '-'} | eta ${g.eta ? 'Y' : '-'}` +
           ` | appr ${g.approvalDate ? 'Y' : '-'} | doc ${(d => d ? d.label.split(' ')[0].toLowerCase() : '-')(documentOf(g))}` +
           ` | link ${(g.proofs || []).some(p => p.url)
               ? ((CONFIG.PROOF_LINK_REQUIRES_FLAG ? linkDelivered(g) : (linkDelivered(g) || !documentOf(g))) ? 'shown' : 'suppressed')
               : '-'}` +
-          ` | img ${g.image ? (g.imageFrom || '?') : '-'} | st ${g.clientStatus || '-'}` +
-          ` | proofs ${ps.length ? ps.join(', ') : '-'}`);
+          ` | img ${esc(g.image ? (g.imageFrom || '?') : '-')} | st ${esc(g.clientStatus || '-')}` +
+          ` | proofs ${esc(ps.length ? ps.join(', ') : '-')}`);
       }
       if(o.proofs && o.proofs.length)
-        L.push('    [order-level proofs] ' + o.proofs.map(x => (x.name || '?') + ':' + (proofState(x) ? proofState(x).label : 'hidden')).join(', '));
+        L.push('    [order-level proofs] ' + esc(o.proofs.map(x => (x.name || '?') + ':' + (proofState(x) ? proofState(x).label : 'hidden')).join(', ')));
     }
   }
   return L.join('\n');
@@ -1597,7 +1610,8 @@ function showDebug(d, parsed){
   })();
 
   const out = [];
-  out.push(`<h4>Request</h4>record_id: ${esc(d.recordId) || '(none)'}\n${esc(d.url) || '(not called)'}`);
+  out.push(`<h4>Request</h4>record_id: ${esc(d.recordId) || '(none)'}\n` +
+    (d.url ? esc(d.url.replace(/\/\/[^/]+\/[^?]*/, '//&lt;hidden&gt;')) : '(not called)'));
   out.push(`<h4>Response</h4>HTTP: ${esc(d.http) || '—'}\nData source used: <span class="${d.source === 'webhook' ? 'good' : 'bad'}">${d.source}</span>`);
   if(parsed){
     const total = parsed.orders.reduce((n, o) => n + o.proofCount, 0);
@@ -1612,15 +1626,19 @@ function showDebug(d, parsed){
   if(d.err) out.push(`<h4>Problem</h4><span class="bad">${esc(d.err)}</span>`);
 
   if(first && typeof first === 'object'){
-    out.push(`<h4>Field names in the first record</h4>` +
-      Object.keys(first).map(k => '• ' + esc(k) + ' = ' + esc(JSON.stringify(first[k])).slice(0, 90)).join('\n'));
+    /* names only — a value here could be COGS, margin or an internal note */
+    out.push(`<h4>Field names in the first record (${Object.keys(first).length})</h4>` +
+      Object.keys(first).map(k => '• ' + esc(k) +
+        (first[k] === null || first[k] === '' ? ' (empty)' : '')).join('\n'));
   }
   if(parsed){
     out.push(`<h4>Understood as</h4>client: ${esc(parsed.clientName)}\norders: ${parsed.orders.length}\n` +
       parsed.orders.map(o => `  ${esc(o.no)} — ${o.groups.length} colorway(s), ` +
         o.groups.map(g => `${esc(g.product)}/${esc(g.color) || '(no color)'} ${g.total}pcs [${g.sizes.map(s => s.label + ':' + s.qty).join(' ') || 'no sizes'}]`).join(' | ')).join('\n'));
   }
-  out.push(`<h4>Raw response (first 4000 chars)</h4>${esc(d.raw).slice(0, 4000) || '(empty)'}`);
+  out.push(`<h4>Note</h4>Field values and the raw response are deliberately not shown here:\n` +
+    `this link is public, so the panel only reports what the page already displays.\n` +
+    `To inspect actual values, use the Make execution history.`);
 
   $('#dbgVer').textContent = '· build ' + CONFIG.VERSION;
   const btn = $('#dbgCopy');
