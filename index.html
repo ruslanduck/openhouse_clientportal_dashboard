@@ -9,7 +9,10 @@
 <!-- Every URL here carries a client's record_id. If a search engine indexed
      one, that client's orders would be reachable from search results, so the
      page is deliberately kept out of every index and out of archives. -->
-<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+<!-- noindex+nofollow keep the record_id out of search results. "nosnippet"
+     was also here and it literally forbids showing a preview snippet, which
+     is exactly what a link unfurl is — it cancelled the Open Graph card. -->
+<meta name="robots" content="noindex, nofollow">
 <meta name="googlebot" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
 
@@ -22,8 +25,11 @@
 <meta property="og:description" content="View the latest orders and track their statuses in real time — no login or actions required.">
 <meta property="og:image" content="https://client.byopenhouse.com/og.png">
 <meta property="og:image:type" content="image/png">
+<!-- Square, and dark. The wide 1200x630 version disappeared against
+     Telegram's dark UI, and a centre crop of an 8.6:1 wordmark reads
+     "PENHOUS". A square that leads with the O survives both. -->
 <meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
+<meta property="og:image:height" content="1200">
 <meta property="og:image:alt" content="OPENHOUSE">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Track Your Latest Orders | OPENHOUSE Dashboard">
@@ -463,7 +469,7 @@ a:hover .ext{opacity:1}
 const CONFIG = {
   /* Bump this on every deploy. Shown in the ?debug panel so you can tell
      at a glance whether the live domain is serving the newest file. */
-  VERSION: 'p53-meta',
+  VERSION: 'p55-og-square',
   // Make webhook that returns this client's orders.
   // Called as: WEBHOOK_URL + '?record_id=' + <id from the page URL>
   WEBHOOK_URL: 'https://hook.us2.make.com/abrea6i91eeauu8xzxhb6vmy2tpb9fl2',
