@@ -3,7 +3,36 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>OPENHOUSE — Client Portal</title>
+<title>Track Your Latest Orders | OPENHOUSE Dashboard</title>
+<meta name="description" content="View the latest orders and track their statuses in real time — no login or actions required.">
+
+<!-- Every URL here carries a client's record_id. If a search engine indexed
+     one, that client's orders would be reachable from search results, so the
+     page is deliberately kept out of every index and out of archives. -->
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+<meta name="googlebot" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+
+<!-- Link previews (Slack, iMessage, WhatsApp, Gmail). og:url stays on the
+     bare domain so a record_id can never end up inside shared metadata. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OPENHOUSE">
+<meta property="og:url" content="https://client.byopenhouse.com/">
+<meta property="og:title" content="Track Your Latest Orders | OPENHOUSE Dashboard">
+<meta property="og:description" content="View the latest orders and track their statuses in real time — no login or actions required.">
+<meta property="og:image" content="https://client.byopenhouse.com/og.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="OPENHOUSE">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Track Your Latest Orders | OPENHOUSE Dashboard">
+<meta name="twitter:description" content="View the latest orders and track their statuses in real time — no login or actions required.">
+<meta name="twitter:image" content="https://client.byopenhouse.com/og.png">
+
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/favicon-180.png">
+<meta name="theme-color" content="#F3F1EC">
 <style>
 /* ─────────────────────────────────────────────────────────────
    OPENHOUSE brand faces, subset to Latin + Latin-Ext and embedded
@@ -434,7 +463,7 @@ a:hover .ext{opacity:1}
 const CONFIG = {
   /* Bump this on every deploy. Shown in the ?debug panel so you can tell
      at a glance whether the live domain is serving the newest file. */
-  VERSION: 'p52-logo',
+  VERSION: 'p53-meta',
   // Make webhook that returns this client's orders.
   // Called as: WEBHOOK_URL + '?record_id=' + <id from the page URL>
   WEBHOOK_URL: 'https://hook.us2.make.com/abrea6i91eeauu8xzxhb6vmy2tpb9fl2',
@@ -1512,6 +1541,7 @@ async function boot(){
   const {clientName, orders} = normalise(data);
   STATE.orders = orders;
   $('#heroClient').textContent = clientName;
+  /* Crawlers read the static <title>; this only relabels the open tab. */
   document.title = clientName + ' — OPENHOUSE Client Portal';
 
   if(!orders.length){
