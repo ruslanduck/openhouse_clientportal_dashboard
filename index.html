@@ -302,20 +302,6 @@ a:hover .ext{opacity:1}
 .btn--ghost:hover{border-color:var(--ink);opacity:1}
 .btn svg{flex:none}
 
-/* ── Artwork call to action ─────────────────────────────────── */
-.artcta{
-  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
-  background:var(--warn-bg);border:1px solid rgba(138,91,0,.24);
-  border-radius:var(--r-md);padding:14px 16px;margin-bottom:12px;
-}
-.artcta__body{flex:1;min-width:220px}
-.artcta__h{font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;
-  text-transform:uppercase;color:var(--warn-fg);margin-bottom:5px}
-.artcta p{margin:0;font-size:13px;line-height:1.45;color:var(--ink-2);max-width:62ch}
-.artcta__btn{flex:none}
-.order__head .cell--status .pill + .pill{margin-top:6px}
-.order__head .cell--status .pill{display:inline-flex}
-
 /* ── Order-level proofs strip ───────────────────────────────── */
 .oproofs{border:1px solid var(--line);border-radius:var(--r-md);background:#FBFAF7;padding:12px 14px;margin-bottom:12px}
 .oproofs__h{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);margin-bottom:9px}
@@ -324,6 +310,13 @@ a:hover .ext{opacity:1}
 .oproofs li b{font-weight:600}
 .oproofs li i{font-style:normal;font-family:var(--mono);font-size:10.5px;color:var(--ink-3)}
 .oproofs li .btn{margin-left:auto;padding:6px 11px}
+
+/* ── Awaiting client artwork ────────────────────────────────── */
+.artwork{border:1px solid rgba(138,91,0,.24);border-radius:var(--r-md);background:var(--warn-bg);
+  padding:12px 14px;margin-bottom:12px}
+.artwork__head{display:flex;align-items:center;gap:11px;flex-wrap:wrap}
+.artwork__txt{font-size:13px;line-height:1.45;color:var(--warn-fg)}
+.cell--flag{display:inline-flex;margin-top:5px}
 
 /* ── States ─────────────────────────────────────────────────── */
 .state{padding:70px 24px;text-align:center;color:var(--ink-2)}
@@ -481,7 +474,7 @@ a:hover .ext{opacity:1}
 const CONFIG = {
   /* Bump this on every deploy. Shown in the ?debug panel so you can tell
      at a glance whether the live domain is serving the newest file. */
-  VERSION: 'p57-artwork-cta',
+  VERSION: 'p57-artwork',
   // Make webhook that returns this client's orders.
   // Called as: WEBHOOK_URL + '?record_id=' + <id from the page URL>
   WEBHOOK_URL: 'https://hook.us2.make.com/abrea6i91eeauu8xzxhb6vmy2tpb9fl2',
@@ -498,10 +491,6 @@ const CONFIG = {
      proofs still awaiting approval offer no button unless the flag is set.
      Set to false to fall back to "link whenever there is no file". */
   PROOF_LINK_REQUIRES_FLAG: true,
-
-  /* Artwork collection form. Opened in-page with ?orderId=<order record id>
-     when an order has items waiting on the client's artwork. */
-  ARTWORK_FORM_URL: 'https://proofing.byopenhouse.com/',
 
   /* True placeholder orders — no items, no status, no address — say nothing
      to a client. An order missing only its items is NOT a placeholder: that
@@ -826,10 +815,13 @@ function mapItem(r){
                 || parseLinkish(pick(r, ['trackingNumber','trackNumber','tracking'], '')).url,
     eta:     String(pick(r, ['customerEtaDisplay','customerETADisplay','eta','customerEta'], '')),
     clientStatus: String(pick(r, ['client_status','clientStatus'], '')),
-    productionStatus: String(pick(r, ['Production Status','productionStatus'], '')),
-    /* Both are exclusions, so an absent field means "not excluded". */
-    skipProofing: truthy(pick(r, ['skip_proofing','skip_proofing_product','skipProofing'], '')),
+    prodStatus:   String(pick(r, ['Production Status','productionStatus'], '')),
+    skipProofing: truthy(pick(r, ['skip_proofing','skipProofing'], '')),
     autocomplete: truthy(pick(r, ['Autocomplete','autocomplete'], '')),
+    /* Items carry "proofing_form_link", orders the misspelled
+       "proffing_form_link" — pick() normalises them to different keys, so
+       both names have to be listed. */
+    formLink:     String(pick(r, ['proofing_form_link','proffing_form_link'], '')),
     sentAsLink:   truthy(pick(r, ['Proof Sent As Link','Sent As Link','Sent as link',
                                   'proof_sent_as_link','Link Proof','Digital Proof Sent'], '')),
     digitalProofFile: String(pick(r, ['Digital Proof File'], '')),
@@ -927,14 +919,6 @@ function proofState(p){
   return null;
 }
 
-/* The client still owes us artwork for this line: production is parked
-   waiting on it, proofing is not being skipped, and it is not auto-completing. */
-function needsClientArt(it){
-  return /pending client art/i.test(it.productionStatus || '')
-      && !it.skipProofing
-      && !it.autocomplete;
-}
-
 /* Some rows have no product link at all (shipping lines, fees) and some
    carry junk like " - " in Style & Color. Walk the candidates and take the
    first that contains an actual word. */
@@ -1019,8 +1003,16 @@ function buildOrder(o, items, proofs){
   let no = String(orderNoOf(o) || '—');
   if(no !== '—' && !no.startsWith('#')) no = '#' + no;
 
-  const orderRecId = String(pick(o, ['Record ID','recordID','recordId','id'], ''));
   const built = attachProofs(groupByColorway(items), proofs || []);
+
+  /* The artwork form is scoped to the order, not the line item, so collect
+     which products it is waiting on instead of repeating the same button on
+     every card. */
+  const artItems = items.filter(needsArtwork);
+  const artwork = artItems.length ? {
+    link: safeUrl(artItems.map(i => i.formLink).find(Boolean) || ''),
+    products: [...new Set(artItems.map(i => i.product).filter(Boolean))]
+  } : null;
   /* every proof on this order that the client will actually see */
   /* A proof with no derivable state still renders as "Proof available" when
      it has a link, so the count must include it. */
@@ -1035,8 +1027,7 @@ function buildOrder(o, items, proofs){
     poNumber: String(pick(o, ['po','poNumber','clientPo'], '')),
     inHands: String(pick(o, ['inHandsDate','inHands'], '')),
     ...built,
-    recordId: orderRecId,
-    needsArt: built.groups.some(g => g.needsArt),
+    artwork, needsArt: !!artwork,
     proofCount: shown.length,
     needsReview: shown.some(p => { const st = proofState(p); return st && st.cls === 'pill--warn'; }),
     hasIssue: shown.some(p => { const st = proofState(p); return st && st.cls === 'pill--bad'; })
@@ -1124,7 +1115,6 @@ function groupByColorway(items){
         carrier: it.carrier, tracking: it.tracking, trackingUrl: it.trackingUrl,
         eta: it.eta, approvalDate: it.approvalDate, clientStatus: it.clientStatus,
         sentAsLink: it.sentAsLink, digitalProofFile: it.digitalProofFile,
-        needsArt: false,
         signedProof: it.signedProof,
         sigReceived: it.sigReceived, unsignedProof: it.unsignedProof, digitalProof: it.digitalProof,
         proofStatus: it.proofStatus, proofComment: it.proofComment, proofDate: it.proofDate
@@ -1145,7 +1135,6 @@ function groupByColorway(items){
       if(!g[f] && it[f]) g[f] = it[f];
     if(it.sigReceived) g.sigReceived = true;
     if(it.sentAsLink)  g.sentAsLink  = true;
-    if(needsClientArt(it)) g.needsArt = true;
   }
   return [...map.values()].map(g => ({
     ...g,
@@ -1225,27 +1214,28 @@ function proofView(g){
        : (linkDelivered(g) || !documentOf(g)));
 }
 
-/* The one thing on this page the client must act on, so it sits above the
-   product cards and opens the form in-page rather than a new tab. */
-function artworkCta(o){
-  if(!o.needsArt || !o.recordId) return '';
-  const url = safeUrl(CONFIG.ARTWORK_FORM_URL + '?orderId=' + encodeURIComponent(o.recordId));
-  if(!url) return '';
-  const n = o.groups.filter(g => g.needsArt).length;
-  return `<div class="artcta">
-    <div class="artcta__body">
-      <div class="artcta__h">Artwork needed</div>
-      <p>We're holding ${n === 1 ? 'one item' : n + ' items'} on this order until we have your
-         artwork. Send it over and we'll start the proof.</p>
+/* Proofs that name a product not present as a card — listed under the order. */
+/* "Pending Client Art (Sales Team)" is an internal label naming an internal
+   team, so the client sees a plain request instead. One block per order,
+   above the cards, because the form link belongs to the order. */
+function artworkView(o){
+  const a = o.artwork;
+  if(!a) return '';
+  const what = a.products.length ? ' on ' + a.products.map(esc).join(', ') : '';
+  return `<div class="artwork">
+    <div class="artwork__head">
+      <span class="pill pill--warn">Artwork needed</span>
+      <div class="artwork__txt">We&rsquo;re ready to start${what} as soon as you send your artwork.</div>
     </div>
-    <button class="btn artcta__btn" data-proof="${esc(url)}" data-proof-title="Send your artwork">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M12 4 7 9M12 4l5 5M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/></svg>
-      Send artwork
-    </button>
+    ${a.link ? `<div class="proof__actions">
+      <button class="btn" data-frame="${esc(a.link)}" data-frame-title="Send your artwork">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 16V4M8 8l4-4 4 4M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        Upload artwork
+      </button>
+    </div>` : ''}
   </div>`;
 }
 
-/* Proofs that name a product not present as a card — listed under the order. */
 function orderProofsView(o){
   if(!o.proofs || !o.proofs.length) return '';
   const rows = o.proofs.map(p => {
@@ -1321,6 +1311,14 @@ function itemStatusRow(g, orderStatus){
    date is either wrong or already superseded by the tracking link. */
 const SETTLED = /deliver|cancel|in ?transit|shipped|complete/i;
 
+/* An item is waiting on the client's artwork when operations is explicitly
+   parked on it, proofing isn't skipped for that product, and the row wasn't
+   auto-completed. Airtable sends false() as [null], never [false], so both
+   flags are read as "not truthy" rather than compared against false. */
+const NEEDS_ART = /pending client art/i;
+const needsArtwork = it =>
+  NEEDS_ART.test(it.prodStatus) && !it.skipProofing && !it.autocomplete;
+
 function cardView(g, orderStatus){
   const max = Math.max(1, ...g.sizes.map(s => s.qty));
   /* A proportional bar with one segment is just a black line — it shows no
@@ -1366,7 +1364,7 @@ function cardView(g, orderStatus){
       ${(g.eta && !SETTLED.test(String(g.clientStatus || orderStatus || '')))
           ? `<div class="row"><span>ETA</span><div>${esc(g.eta)}</div></div>` : ''}
       ${g.approvalDate ? `<div class="row"><span>Approved</span><div>${esc(fmtDate(g.approvalDate))}</div></div>` : ''}
-      ${g.needsArt ? `<div class="row"><span>Status</span><div><span class="pill pill--warn">Awaiting your artwork</span></div></div>` : itemStatusRow(g, orderStatus)}
+      ${itemStatusRow(g, orderStatus)}
       ${documentRow(g)}
     </div>
     ${proofView(g)}
@@ -1416,15 +1414,15 @@ function orderView(o, i){
       <div class="cell--date"><span class="k">Placed</span><div class="order__date">${esc(fmtDate(o.created)) || '—'}</div></div>
       <div class="cell--addr"><span class="k">Ships to</span><div class="order__addr">${
         addrView(o.shipLines)}</div></div>
-      <div class="cell--status"><span class="k">Status</span>${o.needsArt
-        ? '<span class="pill pill--warn">Artwork needed</span>' : ''}${o.status && o.status !== '\u2014'
+      <div class="cell--status"><span class="k">Status</span>${o.status && o.status !== '\u2014'
         ? `<span class="pill ${pillClass(o.status)}">${esc(o.status)}</span>`
-        : '<div class="order__date">&mdash;</div>'}</div>
+        : '<div class="order__date">&mdash;</div>'}${
+        o.needsArt ? '<span class="pill pill--warn cell--flag">Artwork needed</span>' : ''}</div>
       <svg class="order__caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
     </button>
     <div class="order__panel"><div class="order__panelIn"><div class="order__body">
       ${extra ? `<div class="body__meta">${extra}</div>` : '<div style="height:14px"></div>'}
-      ${artworkCta(o)}
+      ${artworkView(o)}
       ${orderProofsView(o)}
       <div class="cards">${o.groups.map(g => cardView(g, o.status)).join('') || '<p style="color:var(--ink-3);font-size:13px">No line items on this order yet.</p>'}</div>
     </div></div></div>
@@ -1444,7 +1442,7 @@ function statusBucket(s){
 function matchesFilter(o, f){
   if(f === 'all')       return true;
   if(f === 'proof')     return o.proofCount > 0;
-  if(f === 'attention') return o.needsReview || o.hasIssue || o.needsArt || statusBucket(o.status) === 'attention';
+  if(f === 'attention') return o.needsArt || o.needsReview || o.hasIssue || statusBucket(o.status) === 'attention';
   return statusBucket(o.status) === f;
 }
 
@@ -1477,7 +1475,6 @@ function reveal(){
 function renderStats(){
   const o = STATE.orders;
   const c = b => o.filter(x => statusBucket(x.status) === b).length;
-  /* Anything the client has to act on, artwork included. */
   const review = o.filter(x => x.needsReview || x.needsArt).length;
   $('#stats').innerHTML = [
     ['Total orders', o.length, ''],
@@ -1511,6 +1508,11 @@ document.addEventListener('click', e => {
   }
   const proofBtn = e.target.closest('[data-proof]');
   if(proofBtn){ openProof(proofBtn.dataset.proof, proofBtn.dataset.proofTitle); return; }
+
+  /* Same in-page frame as a proof, separate attribute so the artwork form
+     can never be mistaken for a proof in the handler. */
+  const frameBtn = e.target.closest('[data-frame]');
+  if(frameBtn){ openProof(frameBtn.dataset.frame, frameBtn.dataset.frameTitle); return; }
 
   const chip = e.target.closest('.chip');
   if(chip){
@@ -1654,10 +1656,7 @@ function buildReport(d, parsed){
     cov('tracking', has('Tracking Number')), cov('trackingUrl', has('tracking_url')),
     cov('eta', has('Customer ETA Display')), cov('workApprovalDate', has('Work Approval Date')),
     cov('sigReceived', has('Proof Signature Received')), cov('unsignedProof', has('Unsigned Proof')),
-    cov('clientStatus', has('client_status')),
-    cov('productionStatus', has('Production Status')),
-    cov('skip_proofing', has('skip_proofing')),
-    cov('Autocomplete', has('Autocomplete'))
+    cov('clientStatus', has('client_status'))
   ].join(' · '));
 
   if(parsed){
@@ -1665,7 +1664,7 @@ function buildReport(d, parsed){
     for(const o of parsed.orders){
       const units = o.groups.reduce((n, g) => n + g.total, 0);
       L.push(`  ${esc(o.no)} | ${esc(o.status)} | ${o.groups.length}cw ${units}u | ${esc(String(o.created).slice(0,10))} | addr ${o.shipLines.length}L` +
-        (o.needsArt ? ' | artwork form: ' + esc(CONFIG.ARTWORK_FORM_URL + '?orderId=' + o.recordId) : ''));
+        ` | art ${o.needsArt ? (o.artwork.link ? esc(o.artwork.products.join('/') || 'yes') : 'NO FORM LINK') : '-'}`);
       for(const g of o.groups){
         const tg = (g.proofs || []).length > 1 ? proofTags(g.proofs) : (g.proofs || []).map(proofTag);
         const ps = (g.proofs || []).map((x, i) => {
@@ -1688,7 +1687,6 @@ function buildReport(d, parsed){
               ? ((CONFIG.PROOF_LINK_REQUIRES_FLAG ? linkDelivered(g) : (linkDelivered(g) || !documentOf(g))) ? 'shown' : 'suppressed')
               : '-'}` +
           ` | img ${esc(g.image ? (g.imageFrom || '?') : '-')} | st ${esc(g.clientStatus || '-')}` +
-          (g.needsArt ? ' | ARTWORK-NEEDED' : '') +
           ` | proofs ${esc(ps.length ? ps.join(', ') : '-')}`);
       }
       if(o.proofs && o.proofs.length)
